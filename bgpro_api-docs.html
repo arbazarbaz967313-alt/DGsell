@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BG Eraser Pro — API Docs</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{--void:#020408;--l1:#0a1220;--l2:#0f1a2e;--l3:#162038;--rim:rgba(255,255,255,0.07);--rim2:rgba(255,255,255,0.13);--neon:#00d4ff;--neon2:#7c3aed;--neon3:#06ffa5;--fire:#ff6b35;--gold:#fbbf24;--red:#ef4444;--txt:#e2e8f0;--txt2:#64748b;--txt3:#334155;}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--void);color:var(--txt);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden;line-height:1.6;}
+.bg{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.bg::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 80% 50% at 50% 0%,rgba(0,212,255,0.1) 0%,transparent 55%),radial-gradient(ellipse 50% 40% at 0% 60%,rgba(124,58,237,0.08) 0%,transparent 50%);}
+.grid-floor{position:absolute;bottom:0;left:0;right:0;height:40%;transform:perspective(800px) rotateX(65deg) translateY(35%);background-image:linear-gradient(rgba(0,212,255,0.06) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,0.06) 1px,transparent 1px);background-size:50px 50px;mask-image:linear-gradient(to bottom,transparent 0%,rgba(0,0,0,.6) 40%,black 100%);}
+
+header{position:sticky;top:0;z-index:100;display:flex;align-items:center;justify-content:space-between;padding:0 40px;height:60px;background:rgba(2,4,8,.9);backdrop-filter:blur(24px);border-bottom:1px solid var(--rim);box-shadow:0 1px 0 rgba(0,212,255,.04),0 4px 24px rgba(0,0,0,.4);}
+.logo-a{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.logo-cube-sm{width:30px;height:30px;position:relative;transform-style:preserve-3d;animation:rotCube 12s linear infinite;}
+.face-sm{position:absolute;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:.9rem;border-radius:5px;backface-visibility:hidden;}
+.sm-ff{background:linear-gradient(135deg,rgba(0,212,255,.3),rgba(124,58,237,.3));border:1px solid rgba(0,212,255,.4);transform:translateZ(15px);}
+.sm-fb{background:linear-gradient(135deg,rgba(124,58,237,.3),rgba(0,212,255,.3));transform:rotateY(180deg) translateZ(15px);}
+.sm-fr{background:rgba(0,212,255,.1);transform:rotateY(90deg) translateZ(15px);}
+.sm-fl{background:rgba(124,58,237,.1);transform:rotateY(-90deg) translateZ(15px);}
+.sm-ft{background:rgba(6,255,165,.08);transform:rotateX(90deg) translateZ(15px);}
+.sm-fbot{transform:rotateX(-90deg) translateZ(15px);}
+@keyframes rotCube{from{transform:rotateY(0) rotateX(15deg);}to{transform:rotateY(360deg) rotateX(15deg);}}
+.logo-name{font-size:1rem;font-weight:800;letter-spacing:-.3px;}
+.logo-name .hi{color:var(--neon);text-shadow:0 0 10px rgba(0,212,255,.5);}
+.nav-links{display:flex;align-items:center;gap:6px;}
+.nav-link{font-size:.76rem;font-weight:600;color:var(--txt2);text-decoration:none;padding:5px 12px;border:1px solid transparent;border-radius:8px;transition:all .2s;}
+.nav-link:hover{color:var(--neon);border-color:rgba(0,212,255,.2);background:rgba(0,212,255,.04);}
+.api-badge{font-size:.65rem;font-weight:700;letter-spacing:1px;color:var(--neon);background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);padding:4px 10px;border-radius:20px;}
+
+.page{position:relative;z-index:5;max-width:900px;margin:0 auto;padding:52px 20px 80px;}
+
+.page-hero{text-align:center;margin-bottom:52px;}
+.page-eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:.68rem;font-weight:700;letter-spacing:2px;color:var(--neon);text-transform:uppercase;background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.18);padding:5px 14px;border-radius:30px;margin-bottom:18px;box-shadow:0 0 20px rgba(0,212,255,.07);animation:tagG 3s ease-in-out infinite;}
+@keyframes tagG{0%,100%{box-shadow:0 0 20px rgba(0,212,255,.07);}50%{box-shadow:0 0 30px rgba(0,212,255,.15);}}
+.page-hero h1{font-size:clamp(1.8rem,4vw,3rem);font-weight:800;letter-spacing:-1px;margin-bottom:12px;line-height:1.1;}
+.grad{background:linear-gradient(100deg,var(--neon),var(--neon2),var(--neon3));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.page-hero p{color:var(--txt2);font-size:.95rem;max-width:460px;margin:0 auto;}
+.info-row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:16px;}
+.itag{font-size:.7rem;font-weight:600;padding:4px 11px;border-radius:20px;}
+.itag.b{background:rgba(0,212,255,.08);color:var(--neon);border:1px solid rgba(0,212,255,.18);}
+.itag.p{background:rgba(124,58,237,.08);color:#a5b4fc;border:1px solid rgba(124,58,237,.18);}
+.itag.g{background:rgba(6,255,165,.08);color:var(--neon3);border:1px solid rgba(6,255,165,.18);}
+
+.sec{margin-bottom:36px;}
+.sec-hdr{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.sec-num{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--neon2),var(--neon));display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:800;color:white;flex-shrink:0;}
+.sec-title{font-size:.95rem;font-weight:700;color:var(--txt);}
+
+.card-3d{background:var(--l1);border:1px solid var(--rim);border-radius:16px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.04);position:relative;}
+.card-3d::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.06),transparent);}
+
+/* PRICING */
+.price-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.price-card{background:var(--l1);border:1px solid var(--rim);border-radius:14px;padding:20px;transition:all .25s;box-shadow:0 8px 24px rgba(0,0,0,.3);}
+.price-card:hover{border-color:var(--rim2);transform:translateY(-3px);}
+.price-card.feat{border-color:rgba(0,212,255,.35);background:linear-gradient(135deg,rgba(0,212,255,.05),rgba(124,58,237,.03));position:relative;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 30px rgba(0,212,255,.06);}
+.price-card.feat::after{content:'POPULAR';position:absolute;top:12px;right:12px;font-size:.55rem;font-weight:800;letter-spacing:1px;color:var(--neon);background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);padding:2px 7px;border-radius:8px;}
+.p-amount{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:700;line-height:1;margin-bottom:4px;}
+.p-amount span{font-size:1rem;color:var(--txt2);}
+.p-calls{font-size:.82rem;color:var(--txt2);margin-bottom:12px;}
+.p-per{font-family:'JetBrains Mono',monospace;font-size:.67rem;color:var(--neon);background:rgba(0,212,255,.07);border:1px solid rgba(0,212,255,.15);padding:3px 9px;border-radius:8px;display:inline-block;}
+
+/* ENDPOINTS */
+.ep-row{display:flex;align-items:center;gap:12px;padding:13px 20px;border-bottom:1px solid var(--rim);font-size:.84rem;}
+.ep-row:last-child{border-bottom:none;}
+.method{font-family:'JetBrains Mono',monospace;font-size:.67rem;font-weight:700;padding:3px 9px;border-radius:6px;flex-shrink:0;}
+.method.post{background:rgba(124,58,237,.12);color:#a5b4fc;border:1px solid rgba(124,58,237,.2);}
+.method.get{background:rgba(6,255,165,.1);color:var(--neon3);border:1px solid rgba(6,255,165,.2);}
+.ep-path{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--neon);flex:1;}
+.ep-desc{font-size:.8rem;color:var(--txt2);}
+
+/* CODE */
+.code-hdr{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--rim);background:rgba(0,0,0,.2);}
+.code-lang{font-family:'JetBrains Mono',monospace;font-size:.67rem;color:var(--neon);letter-spacing:.5px;}
+.copy-btn{font-size:.67rem;font-weight:600;color:var(--txt3);background:transparent;border:1px solid var(--rim);padding:3px 10px;border-radius:6px;cursor:pointer;transition:all .2s;font-family:'Syne',sans-serif;}
+.copy-btn:hover{color:var(--txt2);border-color:var(--rim2);}
+.copy-btn.cop{color:var(--neon3);border-color:rgba(6,255,165,.3);}
+pre{padding:18px 20px;overflow-x:auto;font-family:'JetBrains Mono',monospace;font-size:.77rem;line-height:1.85;color:var(--txt2);background:var(--l1);}
+.kw{color:#818cf8;}.str{color:#34d399;}.key{color:#00d4ff;}.val{color:#fb923c;}.cm{color:var(--txt3);font-style:italic;}.fn{color:#f472b6;}
+
+/* RULES */
+.rule-item{display:flex;align-items:flex-start;gap:12px;padding:13px 20px;border-bottom:1px solid var(--rim);font-size:.88rem;line-height:1.6;}
+.rule-item:last-child{border-bottom:none;}
+.rule-ico{width:22px;height:22px;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.75rem;margin-top:1px;}
+.rule-ico.ok{background:rgba(6,255,165,.1);color:var(--neon3);border:1px solid rgba(6,255,165,.2);}
+.rule-ico.no{background:rgba(239,68,68,.08);color:#fca5a5;border:1px solid rgba(239,68,68,.2);}
+.rule-txt{color:var(--txt2);}
+.rule-txt strong{color:var(--txt);font-weight:600;}
+
+/* FLOW */
+.flow{display:flex;align-items:center;padding:20px;overflow-x:auto;gap:4px;}
+.flow-step{display:flex;flex-direction:column;align-items:center;gap:7px;flex:1;min-width:80px;}
+.flow-ico{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem;background:var(--l2);border:1px solid var(--rim);}
+.flow-lbl{font-size:.68rem;font-weight:600;color:var(--txt2);text-align:center;}
+.flow-arr{font-size:.9rem;color:var(--txt3);flex-shrink:0;margin-bottom:20px;}
+
+/* APPLY */
+.apply-card{background:linear-gradient(135deg,rgba(0,212,255,.06),rgba(124,58,237,.04));border:1px solid rgba(0,212,255,.2);border-radius:20px;padding:28px;margin-top:36px;box-shadow:0 20px 60px rgba(0,0,0,.4),0 0 40px rgba(0,212,255,.04);}
+.apply-card h2{font-size:1.2rem;font-weight:800;margin-bottom:6px;letter-spacing:-.3px;}
+.apply-card>p{color:var(--txt2);font-size:.86rem;margin-bottom:22px;}
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
+.fg{display:flex;flex-direction:column;gap:6px;}
+.fg.full{grid-column:1/-1;}
+label{font-size:.72rem;font-weight:700;color:var(--txt2);letter-spacing:.3px;text-transform:uppercase;}
+input,select,textarea{background:var(--l1);border:1px solid var(--rim);border-radius:10px;padding:11px 14px;color:var(--txt);font-family:'Syne',sans-serif;font-size:.86rem;outline:none;transition:border-color .2s;width:100%;box-shadow:inset 0 2px 6px rgba(0,0,0,.3);}
+input:focus,select:focus,textarea:focus{border-color:rgba(0,212,255,.4);box-shadow:inset 0 2px 6px rgba(0,0,0,.3),0 0 0 3px rgba(0,212,255,.07);}
+input::placeholder,textarea::placeholder{color:var(--txt3);}
+select option{background:var(--l2);}
+textarea{resize:vertical;min-height:80px;}
+.terms{display:flex;align-items:flex-start;gap:10px;font-size:.8rem;color:var(--txt2);margin:14px 0;}
+.terms input{width:16px;height:16px;flex-shrink:0;margin-top:2px;accent-color:var(--neon);}
+.terms a{color:var(--neon);}
+.btn-apply{width:100%;padding:13px;background:linear-gradient(135deg,var(--neon2),var(--neon));color:white;border:none;border-radius:11px;font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .25s;box-shadow:0 0 30px rgba(0,212,255,.12);}
+.btn-apply:hover{transform:translateY(-2px);box-shadow:0 12px 32px rgba(0,0,0,.5),0 0 40px rgba(0,212,255,.25);}
+.success-msg{display:none;text-align:center;padding:18px;background:rgba(6,255,165,.07);border:1px solid rgba(6,255,165,.2);border-radius:12px;margin-top:14px;color:var(--neon3);font-size:.88rem;font-weight:500;}
+.success-msg.show{display:block;}
+
+@media(max-width:600px){header{padding:0 16px;}.page{padding:32px 14px 60px;}.price-grid{grid-template-columns:1fr;}.form-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<div class="bg"><div class="grid-floor"></div></div>
+
+<header>
+  <a class="logo-a" href="BGEraserPro.html">
+    <div class="logo-cube-sm">
+      <div class="face-sm sm-ff">✂</div><div class="face-sm sm-fb">✂</div>
+      <div class="face-sm sm-fr"></div><div class="face-sm sm-fl"></div>
+      <div class="face-sm sm-ft"></div><div class="face-sm sm-fbot"></div>
+    </div>
+    <span class="logo-name"><span class="hi">BG</span>Eraser Pro</span>
+  </a>
+  <div class="nav-links">
+    <a href="BGEraserPro.html" class="nav-link">← Back to App</a>
+    <div class="api-badge">API v1.0</div>
+  </div>
+</header>
+
+<div class="page">
+  <div class="page-hero">
+    <div class="page-eyebrow">🔌 Developer Access</div>
+    <h1>BG Eraser Pro<br><span class="grad">API & Docs</span></h1>
+    <p>Integrate AI background removal into your app. Fast, accurate, affordable.</p>
+    <div class="info-row">
+      <span class="itag b">REST API</span>
+      <span class="itag p">JSON Response</span>
+      <span class="itag g">PNG Output</span>
+      <span class="itag b">Approval Required</span>
+    </div>
+  </div>
+
+  <!-- PRICING -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-num">1</div><div class="sec-title">Pricing Plans</div></div>
+    <div class="price-grid">
+      <div class="price-card feat">
+        <div class="p-amount">$5 <span>/ pack</span></div>
+        <div class="p-calls">100 Background Removals</div>
+        <div class="p-per">$0.05 per image</div>
+      </div>
+      <div class="price-card">
+        <div class="p-amount">$20 <span>/ pack</span></div>
+        <div class="p-calls">500 Background Removals</div>
+        <div class="p-per">$0.04 per image</div>
+      </div>
+      <div class="price-card">
+        <div class="p-amount">$45 <span>/ pack</span></div>
+        <div class="p-calls">1,500 Background Removals</div>
+        <div class="p-per">$0.03 per image</div>
+      </div>
+      <div class="price-card">
+        <div class="p-amount">$80 <span>/ pack</span></div>
+        <div class="p-calls">3,000 Background Removals</div>
+        <div class="p-per">$0.026 per image</div>
+      </div>
+    </div>
+    <div style="margin-top:10px;font-size:.76rem;color:var(--txt3);padding:0 4px;">⚠️ Credits never expire. Payment processed after admin approval.</div>
+  </div>
+
+  <!-- ENDPOINTS -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-num">2</div><div class="sec-title">API Endpoints</div></div>
+    <div class="card-3d">
+      <div class="ep-row"><div class="method post">POST</div><div class="ep-path">/api/v1/remove-bg</div><div class="ep-desc">Remove background from image</div></div>
+      <div class="ep-row"><div class="method get">GET</div><div class="ep-path">/api/v1/credits</div><div class="ep-desc">Check remaining credits</div></div>
+      <div class="ep-row"><div class="method get">GET</div><div class="ep-path">/api/v1/status</div><div class="ep-desc">API health & status</div></div>
+    </div>
+  </div>
+
+  <!-- CODE -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-num">3</div><div class="sec-title">Code Examples</div></div>
+    <div class="card-3d" style="margin-bottom:10px;">
+      <div class="code-hdr"><span class="code-lang">JAVASCRIPT</span><button class="copy-btn" onclick="cp(this,'c1')">Copy</button></div>
+      <pre id="c1"><span class="cm">// Remove background using BG Eraser Pro API</span>
+<span class="kw">const</span> <span class="fn">removeBg</span> = <span class="kw">async</span> (imageFile) => {
+  <span class="kw">const</span> form = <span class="kw">new</span> FormData();
+  form.<span class="fn">append</span>(<span class="str">'image'</span>, imageFile);
+
+  <span class="kw">const</span> res = <span class="kw">await</span> <span class="fn">fetch</span>(<span class="str">'https://bgeraserpro.com/api/v1/remove-bg'</span>, {
+    <span class="key">method</span>: <span class="str">'POST'</span>,
+    <span class="key">headers</span>: { <span class="str">'X-API-Key'</span>: <span class="str">'YOUR_KEY_HERE'</span> },
+    <span class="key">body</span>: form
+  });
+  <span class="kw">return</span> <span class="kw">await</span> res.<span class="fn">json</span>(); <span class="cm">// { image_url, credits_remaining }</span>
+};</pre>
+    </div>
+    <div class="card-3d" style="margin-bottom:10px;">
+      <div class="code-hdr"><span class="code-lang">PYTHON</span><button class="copy-btn" onclick="cp(this,'c2')">Copy</button></div>
+      <pre id="c2"><span class="kw">import</span> requests
+
+<span class="kw">def</span> <span class="fn">remove_bg</span>(path):
+    <span class="kw">with</span> <span class="fn">open</span>(path, <span class="str">'rb'</span>) <span class="kw">as</span> f:
+        r = requests.<span class="fn">post</span>(
+            <span class="str">'https://bgeraserpro.com/api/v1/remove-bg'</span>,
+            headers={<span class="str">'X-API-Key'</span>: <span class="str">'YOUR_KEY_HERE'</span>},
+            files={<span class="str">'image'</span>: f}
+        )
+    <span class="kw">return</span> r.<span class="fn">json</span>() <span class="cm"># { image_url, credits_remaining }</span></pre>
+    </div>
+    <div class="card-3d">
+      <div class="code-hdr"><span class="code-lang">SAMPLE RESPONSE</span><button class="copy-btn" onclick="cp(this,'c3')">Copy</button></div>
+      <pre id="c3">{
+  <span class="key">"success"</span>: <span class="val">true</span>,
+  <span class="key">"image_url"</span>: <span class="str">"https://bgeraserpro.com/output/result_abc123.png"</span>,
+  <span class="key">"credits_used"</span>: <span class="val">1</span>,
+  <span class="key">"credits_remaining"</span>: <span class="val">99</span>,
+  <span class="key">"processing_ms"</span>: <span class="val">820</span>
+}</pre>
+    </div>
+  </div>
+
+  <!-- RULES -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-num">4</div><div class="sec-title">Usage Rules</div></div>
+    <div class="card-3d">
+      <div class="rule-item"><div class="rule-ico ok">✓</div><div class="rule-txt"><strong>Commercial use allowed</strong> — Use in paid products, SaaS, or client projects.</div></div>
+      <div class="rule-item"><div class="rule-ico ok">✓</div><div class="rule-txt"><strong>Multiple projects allowed</strong> — One key usable across your own projects.</div></div>
+      <div class="rule-item"><div class="rule-ico ok">✓</div><div class="rule-txt"><strong>Output reselling allowed</strong> — Offer BG removal as a feature in your own app.</div></div>
+      <div class="rule-item"><div class="rule-ico no">✗</div><div class="rule-txt"><strong>No key sharing</strong> — Your API key is private. Do not expose it in frontend code.</div></div>
+      <div class="rule-item"><div class="rule-ico no">✗</div><div class="rule-txt"><strong>No key reselling</strong> — You cannot sell or distribute your API key to others.</div></div>
+      <div class="rule-item"><div class="rule-ico no">✗</div><div class="rule-txt"><strong>No harmful content</strong> — Illegal or NSFW images are strictly banned. Violation = permanent ban.</div></div>
+      <div class="rule-item"><div class="rule-ico no">✗</div><div class="rule-txt"><strong>No abuse</strong> — Rate limit: 10 req/sec max. No bulk spam requests.</div></div>
+      <div class="rule-item"><div class="rule-ico no">✗</div><div class="rule-txt"><strong>No reverse engineering</strong> — Do not clone or scrape the API or its underlying model.</div></div>
+    </div>
+  </div>
+
+  <!-- PROCESS -->
+  <div class="sec">
+    <div class="sec-hdr"><div class="sec-num">5</div><div class="sec-title">Approval Process</div></div>
+    <div class="card-3d">
+      <div class="flow">
+        <div class="flow-step"><div class="flow-ico">📝</div><div class="flow-lbl">Fill Form</div></div>
+        <div class="flow-arr">→</div>
+        <div class="flow-step"><div class="flow-ico">🔍</div><div class="flow-lbl">Admin Reviews</div></div>
+        <div class="flow-arr">→</div>
+        <div class="flow-step"><div class="flow-ico">✅</div><div class="flow-lbl">Approved</div></div>
+        <div class="flow-arr">→</div>
+        <div class="flow-step"><div class="flow-ico">💳</div><div class="flow-lbl">Payment</div></div>
+        <div class="flow-arr">→</div>
+        <div class="flow-step"><div class="flow-ico">🔑</div><div class="flow-lbl">Get Key</div></div>
+      </div>
+      <div style="padding:12px 20px;border-top:1px solid var(--rim);font-size:.8rem;color:var(--txt2);">⏱ Approval: <strong style="color:var(--txt)">24–48 hours</strong> after form submission. Key sent via email after payment.</div>
+    </div>
+  </div>
+
+  <!-- APPLY FORM -->
+  <div class="apply-card">
+    <h2>🚀 Apply for API Access</h2>
+    <p>Fill the form — we'll review and contact you within 24–48 hours.</p>
+    <div class="form-grid">
+      <div class="fg"><label>Your Name *</label><input id="fn" placeholder="John Doe"></div>
+      <div class="fg"><label>Email *</label><input type="email" id="fe" placeholder="you@example.com"></div>
+      <div class="fg"><label>Website / App URL *</label><input id="fw" placeholder="https://yoursite.com"></div>
+      <div class="fg"><label>Monthly Usage</label>
+        <select id="fu"><option>1–100 images</option><option>100–500 images</option><option>500–2,000 images</option><option>2,000+ images</option></select>
+      </div>
+      <div class="fg full"><label>How will you use it? *</label><textarea id="fuc" placeholder="Describe your project and use case…"></textarea></div>
+      <div class="fg"><label>Starting Plan</label>
+        <select id="fp"><option>Starter — $5 / 100</option><option>Basic — $20 / 500</option><option>Pro — $45 / 1,500</option><option>Business — $80 / 3,000</option></select>
+      </div>
+      <div class="fg"><label>Country</label><input id="fc" placeholder="India"></div>
+    </div>
+    <div class="terms">
+      <input type="checkbox" id="fchk">
+      <label for="fchk">I have read and agree to the <a href="#">Usage Rules</a> above. Violation leads to immediate key revocation.</label>
+    </div>
+    <button class="btn-apply" onclick="submitForm()">Submit Application →</button>
+    <div class="success-msg" id="successMsg">✅ Application submitted! We'll review it within 24–48 hours and contact you at the email provided.</div>
+  </div>
+</div>
+
+<script>
+function cp(btn,id){const t=document.getElementById(id).innerText;navigator.clipboard.writeText(t).then(()=>{btn.textContent='Copied!';btn.classList.add('cop');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('cop');},2000);});}
+function submitForm(){
+  const n=document.getElementById('fn').value.trim(),e=document.getElementById('fe').value.trim(),w=document.getElementById('fw').value.trim(),uc=document.getElementById('fuc').value.trim(),chk=document.getElementById('fchk').checked;
+  if(!n||!e||!w||!uc){alert('Please fill all required fields.');return;}
+  if(!chk){alert('Please agree to the usage rules.');return;}
+  document.getElementById('successMsg').classList.add('show');
+  const b=document.querySelector('.btn-apply');b.disabled=true;b.textContent='Application Sent ✓';b.style.opacity='.6';
+}
+</script>
+</body>
+</html>
