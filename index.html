@@ -3,780 +3,531 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BG Eraser — 100% Free, No API</title>
+<title>BG Eraser Pro — Real AI, Free</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
-<!-- ONNX Runtime for browser AI -->
-<script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+<!-- MediaPipe Vision Tasks - Real AI segmentation -->
+<script type="module">
+import { ImageSegmenter, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs";
+
+let segmenter = null;
+
+async function initAI() {
+  setStatus(15, "Loading AI model...");
+  const vision = await FilesetResolver.forVisionTasks(
+    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm"
+  );
+  setStatus(45, "Initializing segmenter...");
+  segmenter = await ImageSegmenter.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath:
+        "https://storage.googleapis.com/mediapipe-models/image_segmenter/selfie_multiclass_256x256/float32/latest/selfie_multiclass_256x256.tflite",
+      delegate: "GPU",
+    },
+    outputCategoryMask: true,
+    outputConfidenceMasks: false,
+    runningMode: "IMAGE",
+  });
+  setStatus(100, "AI Ready!");
+  window._segmenter = segmenter;
+  window._aiReady = true;
+  document.getElementById('aiReadyBadge').style.display = 'flex';
+  document.getElementById('loadingBadge').style.display = 'none';
+}
+
+window.runSegmentation = async function(imgEl) {
+  if (!segmenter) throw new Error("AI not ready");
+  setStatus(10, "Analyzing image...");
+
+  // Run segmentation
+  const result = segmenter.segment(imgEl);
+  setStatus(60, "Applying AI mask...");
+
+  const mask = result.categoryMask.getAsUint8Array();
+  const W = result.categoryMask.width;
+  const H = result.categoryMask.height;
+  result.categoryMask.close();
+
+  // Draw original image to canvas at mask size
+  const tempCanvas = document.createElement('canvas');
+  tempCanvas.width = W; tempCanvas.height = H;
+  const tCtx = tempCanvas.getContext('2d');
+  tCtx.drawImage(imgEl, 0, 0, W, H);
+  const imgData = tCtx.getImageData(0, 0, W, H);
+
+  // Apply mask: category 0 = background, others = foreground
+  for (let i = 0; i < mask.length; i++) {
+    const alpha = mask[i] === 0 ? 0 : 255; // 0=bg → transparent
+    imgData.data[i * 4 + 3] = alpha;
+  }
+  tCtx.putImageData(imgData, 0, 0);
+
+  setStatus(85, "Upscaling to full resolution...");
+
+  // Draw to final full-size canvas
+  const outCanvas = document.getElementById('resultCanvas');
+  outCanvas.width = imgEl.naturalWidth;
+  outCanvas.height = imgEl.naturalHeight;
+  const outCtx = outCanvas.getContext('2d');
+  outCtx.drawImage(tempCanvas, 0, 0, imgEl.naturalWidth, imgEl.naturalHeight);
+
+  setStatus(100, "Done!");
+  return outCanvas;
+};
+
+function setStatus(pct, txt) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('statusTxt').textContent = txt;
+}
+
+// Boot AI immediately
+initAI().catch(err => {
+  console.error("AI init failed:", err);
+  document.getElementById('loadingBadge').textContent = '⚠️ AI Load Failed - Refresh';
+});
+</script>
 <style>
-:root {
-  --bg: #07080f;
-  --s1: #0f1020;
-  --s2: #161828;
-  --border: #252540;
-  --accent: #00e5ff;
-  --accent2: #7c3aed;
-  --green: #00ff88;
-  --text: #eeeeff;
-  --muted: #6677aa;
-  --yellow: #fbbf24;
+:root{
+  --bg:#060610;--s1:#0d0d1f;--s2:#13132a;--border:#1e1e40;
+  --accent:#5b21b6;--a2:#0ea5e9;--green:#22c55e;--text:#f1f0ff;
+  --muted:#6b7db3;--yellow:#f59e0b;--red:#ef4444;
 }
-* { margin:0; padding:0; box-sizing:border-box; }
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  min-height: 100vh;
-  overflow-x: hidden;
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg);color:var(--text);
+  font-family:'DM Sans',sans-serif;min-height:100vh;overflow-x:hidden;
 }
-body::before {
-  content:'';
-  position:fixed; inset:0;
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background:
-    radial-gradient(ellipse 60% 50% at 10% 10%, rgba(0,229,255,0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 60% at 90% 90%, rgba(124,58,237,0.1) 0%, transparent 60%);
-  pointer-events:none; z-index:0;
+    radial-gradient(ellipse 70% 50% at 15% 15%,rgba(91,33,182,.12) 0%,transparent 65%),
+    radial-gradient(ellipse 55% 55% at 85% 85%,rgba(14,165,233,.08) 0%,transparent 65%);
 }
 
 /* HEADER */
-header {
-  position:relative; z-index:10;
-  display:flex; align-items:center; justify-content:space-between;
-  padding:18px 40px;
-  border-bottom:1px solid var(--border);
+header{
+  position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:16px 36px;border-bottom:1px solid var(--border);
 }
-.logo {
-  font-family:'Syne',sans-serif; font-size:1.4rem; font-weight:800;
-  letter-spacing:-1px;
+.logo{font-family:'Syne',sans-serif;font-size:1.35rem;font-weight:800;letter-spacing:-0.5px;}
+.logo .bg{color:var(--a2);}.logo .er{color:var(--text);}
+.header-right{display:flex;align-items:center;gap:10px;}
+#aiReadyBadge{
+  display:none;align-items:center;gap:6px;
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.3);
+  color:var(--green);font-size:.72rem;font-weight:700;
+  padding:4px 12px;border-radius:20px;letter-spacing:1px;
 }
-.logo .cut { color: var(--accent); }
-.logo .out { color: var(--text); }
-.free-badge {
-  background: linear-gradient(135deg, rgba(0,255,136,0.15), rgba(0,229,255,0.1));
-  border: 1px solid rgba(0,255,136,0.3);
-  color: var(--green);
-  font-size:0.72rem; font-weight:700;
-  padding:4px 12px; border-radius:20px;
-  letter-spacing:1.5px; text-transform:uppercase;
+#aiReadyBadge .dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 2s infinite;}
+#loadingBadge{
+  background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);
+  color:var(--yellow);font-size:.72rem;font-weight:700;
+  padding:4px 12px;border-radius:20px;letter-spacing:1px;
 }
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
 
 /* HERO */
-.hero {
-  position:relative; z-index:5;
-  text-align:center; padding:50px 20px 30px;
+.hero{
+  position:relative;z-index:5;text-align:center;padding:48px 20px 28px;
 }
-.hero h1 {
+.hero h1{
   font-family:'Syne',sans-serif;
-  font-size: clamp(2rem, 5.5vw, 3.8rem);
-  font-weight:800; line-height:1.1; margin-bottom:14px;
+  font-size:clamp(1.9rem,5vw,3.5rem);font-weight:800;line-height:1.1;margin-bottom:12px;
 }
-.hero h1 em {
-  font-style:normal;
-  background: linear-gradient(90deg, var(--accent), #a78bfa, var(--green));
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-  background-clip:text;
-  background-size:200% auto;
-  animation: shine 4s linear infinite;
+.hero h1 .grad{
+  background:linear-gradient(100deg,#818cf8,#38bdf8,#34d399);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  background-size:200% auto;animation:shimmer 3s linear infinite;
 }
-@keyframes shine {
-  0%{ background-position:0% center; }
-  100%{ background-position:200% center; }
+@keyframes shimmer{0%{background-position:0% center;}100%{background-position:200% center;}}
+.hero p{color:var(--muted);font-size:.97rem;max-width:420px;margin:0 auto 22px;line-height:1.65;}
+.chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.chip{
+  background:var(--s2);border:1px solid var(--border);border-radius:30px;
+  padding:5px 13px;font-size:.78rem;color:var(--muted);
 }
-.hero p { color:var(--muted); font-size:1rem; max-width:460px; margin:0 auto 24px; line-height:1.6; }
-
-.chips {
-  display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:0;
-}
-.chip {
-  background:var(--s2); border:1px solid var(--border);
-  border-radius:30px; padding:6px 14px;
-  font-size:0.8rem; color:var(--muted);
-  display:flex; align-items:center; gap:6px;
-}
-.chip .dot {
-  width:6px; height:6px; border-radius:50%;
-  background:var(--green); box-shadow:0 0 6px var(--green);
-  animation:blink 2s infinite;
-}
-@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
 /* MAIN */
-.container {
-  position:relative; z-index:5;
-  max-width:960px; margin:0 auto; padding:40px 20px 60px;
-}
+.wrap{position:relative;z-index:5;max-width:980px;margin:0 auto;padding:32px 18px 60px;}
 
 /* UPLOAD */
-.upload-zone {
-  background:var(--s1);
-  border:2px dashed var(--border);
-  border-radius:20px; padding:55px 30px;
-  text-align:center; cursor:pointer;
-  transition:all 0.3s; position:relative; overflow:hidden;
+.dropzone{
+  background:var(--s1);border:2px dashed var(--border);
+  border-radius:22px;padding:52px 28px;text-align:center;cursor:pointer;
+  transition:all .3s;position:relative;overflow:hidden;
 }
-.upload-zone::after {
-  content:'';
-  position:absolute; inset:0;
-  background:linear-gradient(135deg, rgba(0,229,255,0.04), rgba(124,58,237,0.04));
-  opacity:0; transition:opacity 0.3s;
+.dropzone::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(91,33,182,.06),rgba(14,165,233,.06));
+  opacity:0;transition:opacity .3s;
 }
-.upload-zone:hover::after, .upload-zone.drag-over::after { opacity:1; }
-.upload-zone:hover, .upload-zone.drag-over {
-  border-color: var(--accent);
-  transform:translateY(-3px);
-  box-shadow: 0 20px 50px rgba(0,229,255,0.08);
+.dropzone:hover::before,.dropzone.over::before{opacity:1;}
+.dropzone:hover,.dropzone.over{border-color:var(--a2);transform:translateY(-3px);box-shadow:0 20px 50px rgba(14,165,233,.07);}
+.dz-icon{
+  width:68px;height:68px;border-radius:18px;margin:0 auto 18px;
+  background:linear-gradient(135deg,var(--accent),var(--a2));
+  display:flex;align-items:center;justify-content:center;font-size:2.1rem;
+  box-shadow:0 0 40px rgba(91,33,182,.35);
 }
-.up-icon {
-  width:72px; height:72px; margin:0 auto 20px;
-  background:linear-gradient(135deg, var(--accent2), var(--accent));
-  border-radius:20px; display:flex; align-items:center; justify-content:center;
-  font-size:2.2rem;
-  box-shadow:0 0 40px rgba(0,229,255,0.2);
-}
-.upload-zone h3 {
-  font-family:'Syne',sans-serif; font-size:1.25rem; font-weight:700; margin-bottom:8px;
-}
-.upload-zone p { color:var(--muted); font-size:0.88rem; }
-.fmt-row { display:flex; gap:8px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
-.fmt {
-  background:var(--s2); border:1px solid var(--border);
-  border-radius:6px; padding:3px 9px; font-size:0.73rem; color:var(--muted);
-}
-#fileInput { display:none; }
+.dropzone h3{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700;margin-bottom:8px;}
+.dropzone p{color:var(--muted);font-size:.87rem;}
+#fileInput{display:none;}
 
-/* STATUS BAR */
-.status-bar {
-  display:none; margin-top:20px;
-  background:var(--s1); border:1px solid var(--border);
-  border-radius:14px; padding:18px 24px;
+/* PROGRESS */
+.progress-card{
+  display:none;margin-top:18px;
+  background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:18px 22px;
 }
-.status-bar.show { display:block; }
-.status-label {
-  font-size:0.85rem; color:var(--muted); margin-bottom:10px;
-  display:flex; align-items:center; gap:8px;
-}
-.status-label .spin {
-  width:14px; height:14px;
-  border:2px solid var(--border); border-top-color:var(--accent);
-  border-radius:50%; animation:spin 0.7s linear infinite;
-}
-@keyframes spin { to{transform:rotate(360deg);} }
-.progress-track {
-  height:6px; background:var(--s2); border-radius:6px; overflow:hidden;
-}
-.progress-fill {
-  height:100%;
-  background:linear-gradient(90deg, var(--accent2), var(--accent));
-  border-radius:6px; width:0%;
-  transition:width 0.4s ease;
-}
+.progress-card.show{display:block;}
+.p-label{display:flex;align-items:center;gap:8px;font-size:.83rem;color:var(--muted);margin-bottom:10px;}
+.p-label .spin{width:13px;height:13px;border:2px solid var(--border);border-top-color:var(--a2);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.p-track{height:6px;background:var(--s2);border-radius:6px;overflow:hidden;}
+.p-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--a2));border-radius:6px;width:0%;transition:width .4s ease;}
 
-/* RESULT */
-.result-area {
-  display:none; margin-top:24px;
-  gap:16px;
+/* RESULTS */
+.results{display:none;margin-top:22px;gap:16px;}
+.results.show{display:flex;flex-wrap:wrap;}
+.panel{flex:1;min-width:260px;background:var(--s1);border:1px solid var(--border);border-radius:18px;overflow:hidden;}
+.p-head{
+  padding:11px 18px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;
 }
-.result-area.show { display:flex; flex-wrap:wrap; }
-.img-panel {
-  flex:1; min-width:260px;
-  background:var(--s1); border:1px solid var(--border);
-  border-radius:16px; overflow:hidden;
+.imgbox{
+  padding:14px;min-height:240px;display:flex;align-items:center;justify-content:center;
+  background:repeating-conic-gradient(#191932 0% 25%,#111126 0% 50%) 0 0/18px 18px;
 }
-.panel-head {
-  padding:12px 18px;
-  display:flex; align-items:center; justify-content:space-between;
-  border-bottom:1px solid var(--border);
-  font-size:0.78rem; font-weight:600; color:var(--muted);
-  text-transform:uppercase; letter-spacing:1.2px;
-}
-.img-canvas-wrap {
-  padding:14px; min-height:240px;
-  display:flex; align-items:center; justify-content:center;
-  background:repeating-conic-gradient(#1a1a2e 0% 25%, #111124 0% 50%) 0 0 / 18px 18px;
-}
-.img-canvas-wrap img, .img-canvas-wrap canvas {
-  max-width:100%; max-height:300px;
-  object-fit:contain; border-radius:8px;
-}
+.imgbox img,.imgbox canvas{max-width:100%;max-height:320px;object-fit:contain;border-radius:8px;}
 
-/* DOWNLOAD */
-.dl-section {
-  display:none; margin-top:24px;
-  background:var(--s1); border:1px solid var(--border);
-  border-radius:20px; padding:28px;
+/* DOWNLOAD SECTION */
+.dl-card{display:none;margin-top:22px;background:var(--s1);border:1px solid var(--border);border-radius:20px;padding:26px;}
+.dl-card.show{display:block;}
+.dl-card h3{font-family:'Syne',sans-serif;font-size:.98rem;font-weight:700;margin-bottom:16px;}
+.q-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;}
+.q-btn{
+  background:var(--s2);border:1.5px solid var(--border);border-radius:12px;
+  padding:15px;text-align:center;cursor:pointer;transition:all .2s;
 }
-.dl-section.show { display:block; }
-.dl-section h3 {
-  font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; margin-bottom:18px;
-}
-.quality-grid {
-  display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
-  gap:10px; margin-bottom:18px;
-}
-.q-card {
-  background:var(--s2); border:1.5px solid var(--border);
-  border-radius:12px; padding:16px; text-align:center;
-  cursor:pointer; transition:all 0.2s;
-}
-.q-card:hover { border-color:var(--accent); transform:translateY(-2px); }
-.q-card.sel { border-color:var(--accent); background:rgba(0,229,255,0.05); }
-.q-card .qlabel {
-  font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; margin-bottom:3px;
-}
-.q-card .qres { font-size:0.75rem; color:var(--muted); margin-bottom:8px; }
-.q-card .qtag {
-  font-size:0.68rem; font-weight:700; padding:3px 9px; border-radius:20px;
-}
-.free-tag { background:rgba(0,255,136,0.12); color:var(--green); }
-.ad-tag { background:rgba(251,191,36,0.12); color:var(--yellow); }
+.q-btn:hover{border-color:var(--a2);transform:translateY(-2px);}
+.q-btn.sel{border-color:var(--a2);background:rgba(14,165,233,.06);}
+.q-name{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800;}
+.q-res{font-size:.73rem;color:var(--muted);margin:3px 0 8px;}
+.q-tag{font-size:.67rem;font-weight:700;padding:3px 9px;border-radius:20px;}
+.t-free{background:rgba(34,197,94,.12);color:var(--green);}
+.t-ad{background:rgba(245,158,11,.12);color:var(--yellow);}
 
-.btn-dl {
-  width:100%; padding:15px;
-  background:linear-gradient(135deg, var(--accent2), var(--accent));
-  color:white; border:none; border-radius:12px;
-  font-family:'Syne',sans-serif; font-size:1rem; font-weight:700;
-  cursor:pointer; transition:all 0.3s; letter-spacing:0.3px;
+.btn-dl{
+  width:100%;padding:15px;
+  background:linear-gradient(135deg,var(--accent),var(--a2));
+  color:white;border:none;border-radius:12px;
+  font-family:'Syne',sans-serif;font-size:.98rem;font-weight:700;
+  cursor:pointer;transition:all .3s;
 }
-.btn-dl:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,229,255,0.2); }
-
-.btn-reset {
-  display:block; margin:14px auto 0;
-  padding:10px 22px; background:transparent;
-  color:var(--muted); border:1px solid var(--border);
-  border-radius:9px; font-size:0.88rem; cursor:pointer; transition:all 0.2s;
+.btn-dl:hover{transform:translateY(-2px);box-shadow:0 12px 30px rgba(91,33,182,.3);}
+.btn-new{
+  display:block;margin:12px auto 0;padding:10px 22px;
+  background:transparent;color:var(--muted);border:1px solid var(--border);
+  border-radius:9px;font-size:.86rem;cursor:pointer;transition:all .2s;
 }
-.btn-reset:hover { color:var(--text); border-color:var(--accent); }
+.btn-new:hover{color:var(--text);border-color:var(--a2);}
 
 /* AD MODAL */
-.ad-overlay {
-  display:none; position:fixed; inset:0;
-  background:rgba(0,0,0,0.88); z-index:200;
-  align-items:center; justify-content:center;
-  backdrop-filter:blur(10px);
+.overlay{display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.9);backdrop-filter:blur(12px);align-items:center;justify-content:center;}
+.overlay.show{display:flex;}
+.ad-box{
+  background:var(--s1);border:1px solid var(--border);border-radius:24px;
+  padding:32px;max-width:430px;width:90%;text-align:center;
+  animation:pop .35s cubic-bezier(.34,1.56,.64,1);
 }
-.ad-overlay.show { display:flex; }
-.ad-modal {
-  background:var(--s1); border:1px solid var(--border);
-  border-radius:22px; padding:34px;
-  max-width:440px; width:90%; text-align:center;
-  animation:pop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+@keyframes pop{from{opacity:0;transform:scale(.88) translateY(24px);}to{opacity:1;transform:scale(1) translateY(0);}}
+.ad-box h2{font-family:'Syne',sans-serif;font-size:1.25rem;font-weight:800;margin-bottom:7px;}
+.ad-box>p{color:var(--muted);font-size:.86rem;margin-bottom:18px;}
+.fake-ad{
+  background:var(--s2);border:1px dashed var(--border);border-radius:12px;
+  padding:18px 16px;margin-bottom:16px;position:relative;text-align:left;
 }
-@keyframes pop {
-  from{opacity:0;transform:scale(0.88) translateY(24px);}
-  to{opacity:1;transform:scale(1) translateY(0);}
+.ad-lbl{position:absolute;top:7px;right:7px;font-size:.6rem;color:var(--muted);background:var(--border);padding:2px 5px;border-radius:4px;}
+.ad-inner{display:flex;align-items:center;gap:13px;}
+.ad-thumb{width:58px;height:58px;border-radius:10px;flex-shrink:0;background:linear-gradient(135deg,#312e81,#0c4a6e);display:flex;align-items:center;justify-content:center;font-size:1.7rem;}
+.ad-txt h4{font-size:.86rem;margin-bottom:3px;}
+.ad-txt p{font-size:.73rem;color:var(--muted);margin-bottom:7px;}
+.ad-cta{background:var(--accent);color:#fff;font-size:.7rem;padding:3px 10px;border-radius:6px;font-weight:600;}
+.t-track{height:5px;background:var(--s2);border-radius:5px;margin-bottom:13px;overflow:hidden;}
+.t-fill{height:100%;width:0%;border-radius:5px;background:linear-gradient(90deg,var(--accent),var(--a2));transition:width linear;}
+.btn-skip{
+  width:100%;padding:13px;border-radius:11px;
+  font-family:'Syne',sans-serif;font-size:.93rem;font-weight:700;
+  border:1px solid var(--border);background:var(--s2);color:var(--muted);
+  cursor:not-allowed;opacity:.4;transition:all .3s;
 }
-.ad-modal h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; margin-bottom:8px; }
-.ad-modal > p { color:var(--muted); font-size:0.88rem; margin-bottom:20px; }
-
-.fake-ad {
-  background:var(--s2); border:1px dashed var(--border);
-  border-radius:12px; padding:20px 18px; margin-bottom:18px;
-  position:relative; text-align:left;
-}
-.fake-ad .ad-badge {
-  position:absolute; top:8px; right:8px;
-  font-size:0.6rem; color:var(--muted); background:var(--border);
-  padding:2px 6px; border-radius:4px;
-}
-.fake-ad-inner { display:flex; align-items:center; gap:14px; }
-.fake-ad-thumb {
-  width:60px; height:60px; border-radius:12px; flex-shrink:0;
-  background:linear-gradient(135deg,#1e1b4b,#0c4a6e);
-  display:flex; align-items:center; justify-content:center; font-size:1.8rem;
-}
-.fake-ad-text h4 { font-size:0.88rem; margin-bottom:4px; }
-.fake-ad-text p { font-size:0.75rem; color:var(--muted); margin-bottom:8px; }
-.fake-ad-text .cta-btn {
-  background:var(--accent2); color:white;
-  font-size:0.72rem; padding:4px 11px; border-radius:6px; font-weight:600;
-}
-
-.timer-track { height:5px; background:var(--s2); border-radius:5px; margin-bottom:14px; overflow:hidden; }
-.timer-bar { height:100%; width:0%; border-radius:5px;
-  background:linear-gradient(90deg,var(--accent2),var(--accent)); transition:width linear; }
-
-.btn-skip {
-  width:100%; padding:14px; border-radius:11px;
-  font-family:'Syne',sans-serif; font-size:0.95rem; font-weight:700;
-  border:1px solid var(--border); background:var(--s2); color:var(--muted);
-  cursor:not-allowed; transition:all 0.3s; opacity:0.45;
-}
-.btn-skip.ready {
-  opacity:1; cursor:pointer;
-  background:linear-gradient(135deg,var(--accent2),var(--accent));
-  color:white; border-color:transparent;
-}
-.btn-skip.ready:hover { transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,229,255,0.2); }
-.countdown-txt { font-size:0.78rem; color:var(--muted); margin-top:9px; }
+.btn-skip.go{opacity:1;cursor:pointer;background:linear-gradient(135deg,var(--accent),var(--a2));color:#fff;border-color:transparent;}
+.btn-skip.go:hover{transform:translateY(-2px);}
+.cnt-txt{font-size:.76rem;color:var(--muted);margin-top:8px;}
 
 /* ERROR */
-.err {
-  display:none; margin-top:14px;
-  background:rgba(239,68,68,0.08); border:1px solid rgba(239,68,68,0.25);
-  border-radius:10px; padding:12px 18px; color:#fca5a5; font-size:0.87rem; text-align:center;
-}
-.err.show { display:block; }
+.err{display:none;margin-top:14px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:12px 18px;color:#fca5a5;font-size:.86rem;text-align:center;}
+.err.show{display:block;}
 
 /* TOAST */
-.toast {
-  position:fixed; bottom:28px; left:50%;
-  transform:translateX(-50%) translateY(80px);
-  background:var(--s1); border:1px solid var(--border);
-  border-radius:12px; padding:12px 22px; font-size:0.88rem;
-  z-index:300; transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
-  white-space:nowrap;
-}
-.toast.show { transform:translateX(-50%) translateY(0); }
-.toast.ok { border-color:var(--green); color:var(--green); }
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(70px);background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:11px 20px;font-size:.86rem;z-index:300;transition:transform .4s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.ok{border-color:var(--green);color:var(--green);}
 
-/* STATS */
-.stats { display:flex; gap:24px; justify-content:center; flex-wrap:wrap; padding:30px 20px 50px; position:relative; z-index:5; }
-.stat { text-align:center; }
-.stat .n { font-family:'Syne',sans-serif; font-size:1.7rem; font-weight:800;
-  background:linear-gradient(135deg,var(--accent),var(--accent2));
-  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
-}
-.stat .l { font-size:0.78rem; color:var(--muted); margin-top:3px; }
-
-@media(max-width:600px){
-  header{padding:14px 18px;}
-  .hero{padding:36px 16px 24px;}
-  .container{padding:28px 14px 50px;}
-}
+@media(max-width:580px){header{padding:13px 16px;}.hero{padding:32px 14px 22px;}.wrap{padding:22px 12px 50px;}}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="logo"><span class="cut">BG</span><span class="out">Eraser</span></div>
-  <div class="free-badge">✦ 100% Free • No API</div>
+  <div class="logo"><span class="bg">BG</span><span class="er">Eraser Pro</span></div>
+  <div class="header-right">
+    <div id="loadingBadge">⏳ Loading AI...</div>
+    <div id="aiReadyBadge"><div class="dot"></div>AI READY</div>
+  </div>
 </header>
 
 <div class="hero">
-  <h1>Remove Any Background<br><em>Free. Instant. AI-Powered.</em></h1>
-  <p>Works fully in your browser. No server, no API key, no account needed. Your photos never leave your device.</p>
+  <h1>Real AI Background<br><span class="grad">Removal — Free</span></h1>
+  <p>Powered by Google MediaPipe AI. Runs fully in your browser. No API key, no uploads to server, 100% private.</p>
   <div class="chips">
-    <div class="chip"><div class="dot"></div>No API Key</div>
-    <div class="chip"><div class="dot"></div>Works Offline</div>
-    <div class="chip"><div class="dot"></div>HD Free</div>
-    <div class="chip"><div class="dot"></div>4K via 1 Ad</div>
-    <div class="chip"><div class="dot"></div>Privacy Safe</div>
+    <div class="chip">🧠 Google AI</div>
+    <div class="chip">🔒 Fully Private</div>
+    <div class="chip">🆓 No API Key</div>
+    <div class="chip">🖼️ HD Free</div>
+    <div class="chip">✨ 4K via 1 Ad</div>
   </div>
 </div>
 
-<div class="container">
-  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-    <div class="up-icon">🖼️</div>
+<div class="wrap">
+  <div class="dropzone" id="dz" onclick="document.getElementById('fileInput').click()">
+    <div class="dz-icon">🖼️</div>
     <h3>Drop your photo here</h3>
-    <p>or tap to pick from your device</p>
-    <div class="fmt-row">
-      <span class="fmt">JPG</span><span class="fmt">PNG</span>
-      <span class="fmt">WEBP</span><span class="fmt">Up to 20MB</span>
-    </div>
+    <p>JPG · PNG · WEBP · up to 20MB<br>Works great on people, products & objects</p>
     <input type="file" id="fileInput" accept="image/*">
   </div>
 
-  <div class="err" id="errMsg"></div>
+  <div class="err" id="errEl"></div>
 
-  <!-- PROGRESS -->
-  <div class="status-bar" id="statusBar">
-    <div class="status-label">
-      <div class="spin"></div>
-      <span id="statusTxt">Loading AI model...</span>
-    </div>
-    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="progress-card" id="progCard">
+    <div class="p-label"><div class="spin"></div><span id="statusTxt">Initializing...</span></div>
+    <div class="p-track"><div class="p-fill" id="progressFill"></div></div>
   </div>
 
-  <!-- RESULTS -->
-  <div class="result-area" id="resultArea">
-    <div class="img-panel">
-      <div class="panel-head"><span>Original</span><span>📷</span></div>
-      <div class="img-canvas-wrap"><img id="origImg" src="" alt="Original"></div>
+  <div class="results" id="results">
+    <div class="panel">
+      <div class="p-head"><span>Original</span><span>📷</span></div>
+      <div class="imgbox"><img id="origImg" src="" alt="Original"></div>
     </div>
-    <div class="img-panel">
-      <div class="panel-head"><span>Background Removed</span><span>✨</span></div>
-      <div class="img-canvas-wrap"><canvas id="resultCanvas"></canvas></div>
+    <div class="panel">
+      <div class="p-head"><span>Background Removed ✨</span><span>🤖 AI</span></div>
+      <div class="imgbox"><canvas id="resultCanvas"></canvas></div>
     </div>
   </div>
 
-  <!-- DOWNLOAD -->
-  <div class="dl-section" id="dlSection">
-    <h3>⬇️ Choose Download Quality</h3>
-    <div class="quality-grid">
-      <div class="q-card sel" id="qHD" onclick="pickQ('hd')">
-        <div class="qlabel">HD</div>
-        <div class="qres">Up to 1080p</div>
-        <div class="qtag free-tag">✓ FREE</div>
+  <div class="dl-card" id="dlCard">
+    <h3>⬇️ Download Quality</h3>
+    <div class="q-grid">
+      <div class="q-btn sel" id="qHD" onclick="pickQ('hd')">
+        <div class="q-name">HD</div>
+        <div class="q-res">Up to 1080p</div>
+        <div class="q-tag t-free">✓ FREE</div>
       </div>
-      <div class="q-card" id="q2K" onclick="pickQ('2k')">
-        <div class="qlabel">2K</div>
-        <div class="qres">Up to 1440p</div>
-        <div class="qtag ad-tag">1 Ad</div>
+      <div class="q-btn" id="q2K" onclick="pickQ('2k')">
+        <div class="q-name">2K</div>
+        <div class="q-res">Up to 1440p</div>
+        <div class="q-tag t-ad">1 Ad</div>
       </div>
-      <div class="q-card" id="q4K" onclick="pickQ('4k')">
-        <div class="qlabel">4K</div>
-        <div class="qres">Ultra 4096px</div>
-        <div class="qtag ad-tag">1 Ad</div>
+      <div class="q-btn" id="q4K" onclick="pickQ('4k')">
+        <div class="q-name">4K</div>
+        <div class="q-res">Ultra 4096px</div>
+        <div class="q-tag t-ad">1 Ad</div>
       </div>
     </div>
     <button class="btn-dl" id="btnDl" onclick="handleDl()">⬇️ Download HD — Free</button>
-    <button class="btn-reset" onclick="resetAll()">↩ Try another photo</button>
+    <button class="btn-new" onclick="resetAll()">↩ Remove another photo</button>
   </div>
 </div>
 
-<div class="stats">
-  <div class="stat"><div class="n">100%</div><div class="l">Free Forever</div></div>
-  <div class="stat"><div class="n">0</div><div class="l">API Keys Needed</div></div>
-  <div class="stat"><div class="n">4K</div><div class="l">Max Resolution</div></div>
-  <div class="stat"><div class="n">🔒</div><div class="l">Privacy Safe</div></div>
-</div>
-
 <!-- AD MODAL -->
-<div class="ad-overlay" id="adOverlay">
-  <div class="ad-modal">
+<div class="overlay" id="overlay">
+  <div class="ad-box">
     <h2>📺 Watch 1 Short Ad</h2>
-    <p>Unlock <strong id="adQLabel">4K</strong> download by watching this 5-second ad. Download starts automatically!</p>
+    <p>Unlock <strong id="adQL">4K</strong> download free — just 5 seconds!</p>
     <div class="fake-ad">
-      <div class="ad-badge">AD</div>
-      <div class="fake-ad-inner">
-        <div class="fake-ad-thumb">🎨</div>
-        <div class="fake-ad-text">
-          <h4>Pro Design Suite 2025</h4>
-          <p>Edit photos, create logos & videos. 30 days free trial.</p>
-          <span class="cta-btn">Try Free →</span>
+      <div class="ad-lbl">AD</div>
+      <div class="ad-inner">
+        <div class="ad-thumb">🎨</div>
+        <div class="ad-txt">
+          <h4>DesignPro Suite 2025</h4>
+          <p>Professional photo editor for creators. Try free 30 days.</p>
+          <span class="ad-cta">Try Free →</span>
         </div>
       </div>
     </div>
-    <div class="timer-track"><div class="timer-bar" id="timerBar"></div></div>
+    <div class="t-track"><div class="t-fill" id="tFill"></div></div>
     <button class="btn-skip" id="btnSkip" onclick="adDone()">Skip & Download</button>
-    <div class="countdown-txt" id="cntTxt">Please wait <span id="cntNum">5</span>s...</div>
+    <div class="cnt-txt" id="cntTxt">Please wait <span id="cntN">5</span>s...</div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-// ─── STATE ───────────────────────────────────────────────────────────────────
-let resultBlob = null;
-let selectedQ  = 'hd';
-let adResolve  = null;
-let imgNaturalW = 1, imgNaturalH = 1;
+let selectedQ = 'hd';
+let adResolve = null;
 
-// ─── DRAG & DROP ─────────────────────────────────────────────────────────────
-const zone = document.getElementById('uploadZone');
-zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag-over'); });
-zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-zone.addEventListener('drop', e => {
-  e.preventDefault(); zone.classList.remove('drag-over');
+// ── DRAG & DROP ──────────────────────────────────────
+const dz = document.getElementById('dz');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
   const f = e.dataTransfer.files[0];
-  if (f && f.type.startsWith('image/')) startProcess(f);
+  if (f && f.type.startsWith('image/')) process(f);
 });
 document.getElementById('fileInput').addEventListener('change', e => {
-  if (e.target.files[0]) startProcess(e.target.files[0]);
+  if (e.target.files[0]) process(e.target.files[0]);
 });
 
-// ─── MAIN PIPELINE ───────────────────────────────────────────────────────────
-async function startProcess(file) {
+// ── MAIN PROCESS ─────────────────────────────────────
+async function process(file) {
   showErr('');
-  setProgress(0, 'Preparing image...');
-  document.getElementById('statusBar').classList.add('show');
-  document.getElementById('resultArea').classList.remove('show');
-  document.getElementById('dlSection').classList.remove('show');
+  hide('results'); hide('dlCard');
+  show('progCard');
+  setP(5, 'Loading image...');
 
-  // Show original
-  const origURL = URL.createObjectURL(file);
-  document.getElementById('origImg').src = origURL;
+  if (!window._aiReady) {
+    setP(10, 'Waiting for AI to load...');
+    await waitForAI();
+  }
+
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  const url = URL.createObjectURL(file);
+
+  await new Promise((res, rej) => {
+    img.onload = res;
+    img.onerror = rej;
+    img.src = url;
+  });
+
+  document.getElementById('origImg').src = url;
 
   try {
-    setProgress(10, 'Loading image data...');
-    const { imageData, width, height, naturalW, naturalH } = await loadImageData(file, 320, 320);
-    imgNaturalW = naturalW; imgNaturalH = naturalH;
-
-    setProgress(30, 'Running AI segmentation...');
-    const mask = await runAI(imageData, width, height);
-
-    setProgress(75, 'Applying mask...');
-    await applyMask(file, mask, naturalW, naturalH);
-
-    setProgress(100, 'Done!');
-    document.getElementById('statusBar').classList.remove('show');
-    document.getElementById('resultArea').classList.add('show');
-    document.getElementById('dlSection').classList.add('show');
-    showToast('✅ Background removed!', 'ok');
-
+    setP(20, 'Running AI segmentation...');
+    await window.runSegmentation(img);
+    hide('progCard');
+    show('results');
+    show('dlCard');
+    showToast('✅ Background removed perfectly!', 'ok');
   } catch(err) {
-    document.getElementById('statusBar').classList.remove('show');
-    showErr('⚠️ ' + (err.message || 'Failed. Try a different photo.'));
+    hide('progCard');
+    showErr('⚠️ Error: ' + err.message + '. Please try again.');
     console.error(err);
   }
 }
 
-// ─── LOAD + RESIZE IMAGE ──────────────────────────────────────────────────────
-function loadImageData(file, targetW, targetH) {
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => {
-      const naturalW = img.naturalWidth, naturalH = img.naturalHeight;
-      const c = document.createElement('canvas');
-      c.width = targetW; c.height = targetH;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(img, 0, 0, targetW, targetH);
-      const id = ctx.getImageData(0, 0, targetW, targetH);
-      res({ imageData: id, width: targetW, height: targetH, naturalW, naturalH });
-    };
-    img.onerror = rej;
-    img.src = URL.createObjectURL(file);
+function waitForAI() {
+  return new Promise(res => {
+    const check = setInterval(() => {
+      if (window._aiReady) { clearInterval(check); res(); }
+    }, 300);
   });
 }
 
-// ─── AI SEGMENTATION (pure JS, no external model needed) ─────────────────────
-// Uses a proven canvas-based smart segmentation that works great for portraits,
-// products, and most common use-cases — completely offline, no ONNX needed.
-async function runAI(imageData, w, h) {
-  // Simulate async work so UI updates
-  await delay(400);
-  setProgress(45, 'Detecting subject...');
-  await delay(300);
-  setProgress(60, 'Refining edges...');
-  await delay(300);
-
-  const data = imageData.data;
-  const mask = new Float32Array(w * h);
-
-  // Step 1: Sample border for background color (multiple points)
-  const borderSamples = [];
-  for (let x = 0; x < w; x += 8) {
-    borderSamples.push(getPixel(data, x, 0, w));
-    borderSamples.push(getPixel(data, x, h-1, w));
-  }
-  for (let y = 0; y < h; y += 8) {
-    borderSamples.push(getPixel(data, 0, y, w));
-    borderSamples.push(getPixel(data, w-1, y, w));
-  }
-
-  // Find dominant border color via simple clustering
-  const bgColor = medianColor(borderSamples);
-
-  // Step 2: Color-based segmentation with edge detection
-  const visited = new Uint8Array(w * h);
-  const queue = [];
-
-  // Flood-fill from corners
-  const corners = [[0,0],[w-1,0],[0,h-1],[w-1,h-1]];
-  for (const [cx,cy] of corners) {
-    if (!visited[cy*w+cx]) {
-      queue.push([cx,cy]);
-      visited[cy*w+cx] = 1;
-    }
-  }
-
-  // Also seed edges
-  for (let x = 0; x < w; x += 4) {
-    if (!visited[x]) { queue.push([x,0]); visited[x]=1; }
-    if (!visited[(h-1)*w+x]) { queue.push([x,h-1]); visited[(h-1)*w+x]=1; }
-  }
-  for (let y = 0; y < h; y += 4) {
-    if (!visited[y*w]) { queue.push([0,y]); visited[y*w]=1; }
-    if (!visited[y*w+w-1]) { queue.push([w-1,y]); visited[y*w+w-1]=1; }
-  }
-
-  const tolerance = 52;
-
-  while (queue.length > 0) {
-    const [x,y] = queue.pop();
-    const pix = getPixel(data, x, y, w);
-    const dist = colorDist(pix, bgColor);
-    if (dist < tolerance) {
-      mask[y*w+x] = 1; // background
-      for (const [nx,ny] of neighbors(x,y,w,h)) {
-        if (!visited[ny*w+nx]) {
-          visited[ny*w+nx] = 1;
-          queue.push([nx,ny]);
-        }
-      }
-    }
-  }
-
-  // Step 3: Smooth the mask edges using a simple blur
-  const smoothed = new Float32Array(w * h);
-  const radius = 2;
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      let sum = 0, count = 0;
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          const nx = x+dx, ny = y+dy;
-          if (nx>=0&&nx<w&&ny>=0&&ny<h) { sum+=mask[ny*w+nx]; count++; }
-        }
-      }
-      smoothed[y*w+x] = sum/count;
-    }
-  }
-
-  return smoothed;
-}
-
-// ─── APPLY MASK TO FULL-SIZE IMAGE ───────────────────────────────────────────
-async function applyMask(file, mask, fullW, fullH) {
-  const maskW = 320, maskH = 320;
-  return new Promise((res, rej) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.getElementById('resultCanvas');
-      canvas.width = fullW; canvas.height = fullH;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, fullW, fullH);
-      const id = ctx.getImageData(0, 0, fullW, fullH);
-      const data = id.data;
-
-      for (let y = 0; y < fullH; y++) {
-        for (let x = 0; x < fullW; x++) {
-          const mx = Math.round(x * maskW / fullW);
-          const my = Math.round(y * maskH / fullH);
-          const mIdx = Math.min(my, maskH-1) * maskW + Math.min(mx, maskW-1);
-          const alpha = 1 - mask[mIdx]; // 0=transparent(bg), 1=keep(subject)
-          const i = (y * fullW + x) * 4;
-          data[i+3] = Math.round(data[i+3] * alpha);
-        }
-      }
-      ctx.putImageData(id, 0, 0);
-
-      // Save as blob for download
-      canvas.toBlob(blob => { resultBlob = blob; res(); }, 'image/png');
-    };
-    img.onerror = rej;
-    img.src = URL.createObjectURL(file);
-  });
-}
-
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-function getPixel(data, x, y, w) {
-  const i = (y*w+x)*4;
-  return [data[i], data[i+1], data[i+2]];
-}
-function colorDist([r1,g1,b1],[r2,g2,b2]) {
-  return Math.abs(r1-r2)+Math.abs(g1-g2)+Math.abs(b1-b2);
-}
-function medianColor(samples) {
-  const r = samples.map(s=>s[0]).sort((a,b)=>a-b);
-  const g = samples.map(s=>s[1]).sort((a,b)=>a-b);
-  const b = samples.map(s=>s[2]).sort((a,b)=>a-b);
-  const m = Math.floor(samples.length/2);
-  return [r[m], g[m], b[m]];
-}
-function neighbors(x,y,w,h) {
-  const n=[];
-  if(x>0) n.push([x-1,y]);
-  if(x<w-1) n.push([x+1,y]);
-  if(y>0) n.push([x,y-1]);
-  if(y<h-1) n.push([x,y+1]);
-  return n;
-}
-function delay(ms) { return new Promise(r => setTimeout(r,ms)); }
-
-// ─── PROGRESS ────────────────────────────────────────────────────────────────
-function setProgress(pct, txt) {
-  document.getElementById('progressFill').style.width = pct + '%';
-  document.getElementById('statusTxt').textContent = txt;
-}
-
-// ─── QUALITY PICKER ──────────────────────────────────────────────────────────
+// ── QUALITY ───────────────────────────────────────────
 function pickQ(q) {
   selectedQ = q;
   ['qHD','q2K','q4K'].forEach(id => document.getElementById(id).classList.remove('sel'));
-  const map = {hd:'qHD','2k':'q2K','4k':'q4K'};
-  document.getElementById(map[q]).classList.add('sel');
+  const m = {hd:'qHD','2k':'q2K','4k':'q4K'};
+  document.getElementById(m[q]).classList.add('sel');
   const btn = document.getElementById('btnDl');
-  if(q==='hd') btn.textContent = '⬇️ Download HD — Free';
-  else btn.textContent = `📺 Watch 1 Ad → Download ${q.toUpperCase()}`;
+  btn.textContent = q === 'hd' ? '⬇️ Download HD — Free' : `📺 Watch 1 Ad → Download ${q.toUpperCase()}`;
 }
 
-// ─── DOWNLOAD HANDLER ─────────────────────────────────────────────────────────
+// ── DOWNLOAD ──────────────────────────────────────────
 async function handleDl() {
-  if(!resultBlob) return;
-  if(selectedQ !== 'hd') await showAd(selectedQ.toUpperCase());
+  if (selectedQ !== 'hd') await showAd(selectedQ.toUpperCase());
   doDownload(selectedQ);
 }
 
 function doDownload(q) {
-  const canvas = document.getElementById('resultCanvas');
+  const src = document.getElementById('resultCanvas');
   const scales = {hd:1,'2k':1.5,'4k':2};
-  const scale = scales[q]||1;
-  const outW = Math.min(Math.round(canvas.width * scale), q==='4k'?4096:q==='2k'?2880:1920);
-  const outH = Math.round(outW * canvas.height / canvas.width);
-
-  const out = document.createElement('canvas');
-  out.width = outW; out.height = outH;
-  out.getContext('2d').drawImage(canvas, 0, 0, outW, outH);
-  out.toBlob(blob => {
-    const url = URL.createObjectURL(blob);
+  const maxW = {hd:1920,'2k':2880,'4k':4096};
+  const scale = scales[q] || 1;
+  const outW = Math.min(src.width * scale, maxW[q]);
+  const outH = Math.round(outW * src.height / src.width);
+  const c = document.createElement('canvas');
+  c.width = outW; c.height = outH;
+  c.getContext('2d').drawImage(src, 0, 0, outW, outH);
+  c.toBlob(blob => {
     const a = document.createElement('a');
-    a.href = url; a.download = `bg-removed-${q}-${Date.now()}.png`;
+    a.href = URL.createObjectURL(blob);
+    a.download = `bg-removed-${q}-${Date.now()}.png`;
     a.click();
-    URL.revokeObjectURL(url);
-    showToast(`✅ ${q.toUpperCase()} downloaded!`, 'ok');
+    showToast(`✅ ${q.toUpperCase()} PNG downloaded!`, 'ok');
   }, 'image/png');
 }
 
-// ─── AD SYSTEM ───────────────────────────────────────────────────────────────
+// ── AD ────────────────────────────────────────────────
 function showAd(quality) {
   return new Promise(res => {
     adResolve = res;
-    document.getElementById('adQLabel').textContent = quality;
-    document.getElementById('adOverlay').classList.add('show');
-    document.getElementById('btnSkip').classList.remove('ready');
+    document.getElementById('adQL').textContent = quality;
+    document.getElementById('overlay').classList.add('show');
+    document.getElementById('btnSkip').classList.remove('go');
     document.getElementById('cntTxt').style.display = 'block';
-
-    const bar = document.getElementById('timerBar');
+    const bar = document.getElementById('tFill');
     bar.style.transition = 'none'; bar.style.width = '0%';
-    setTimeout(()=>{ bar.style.transition='width 5s linear'; bar.style.width='100%'; }, 50);
-
-    let n = 5;
-    document.getElementById('cntNum').textContent = n;
+    setTimeout(() => { bar.style.transition = 'width 5s linear'; bar.style.width = '100%'; }, 50);
+    let n = 5; document.getElementById('cntN').textContent = n;
     const t = setInterval(() => {
-      n--;
-      document.getElementById('cntNum').textContent = n;
-      if(n<=0) {
+      n--; document.getElementById('cntN').textContent = n;
+      if (n <= 0) {
         clearInterval(t);
-        document.getElementById('btnSkip').classList.add('ready');
-        document.getElementById('cntTxt').style.display='none';
-        document.getElementById('btnSkip').textContent = '✓ Skip Ad & Download Now!';
+        document.getElementById('btnSkip').classList.add('go');
+        document.getElementById('cntTxt').style.display = 'none';
+        document.getElementById('btnSkip').textContent = '✓ Skip & Download Now!';
       }
     }, 1000);
   });
 }
-
 function adDone() {
-  if(!document.getElementById('btnSkip').classList.contains('ready')) return;
-  document.getElementById('adOverlay').classList.remove('show');
+  if (!document.getElementById('btnSkip').classList.contains('go')) return;
+  document.getElementById('overlay').classList.remove('show');
   document.getElementById('btnSkip').textContent = 'Skip & Download';
-  if(adResolve) { adResolve(); adResolve=null; }
+  if (adResolve) { adResolve(); adResolve = null; }
 }
 
-// ─── RESET ───────────────────────────────────────────────────────────────────
+// ── RESET ─────────────────────────────────────────────
 function resetAll() {
-  resultBlob=null; selectedQ='hd';
-  document.getElementById('resultArea').classList.remove('show');
-  document.getElementById('dlSection').classList.remove('show');
-  document.getElementById('statusBar').classList.remove('show');
-  document.getElementById('fileInput').value='';
-  document.getElementById('origImg').src='';
-  const c=document.getElementById('resultCanvas');
+  hide('results'); hide('dlCard'); hide('progCard');
+  showErr('');
+  document.getElementById('fileInput').value = '';
+  document.getElementById('origImg').src = '';
+  const c = document.getElementById('resultCanvas');
   c.getContext('2d').clearRect(0,0,c.width,c.height);
   pickQ('hd');
-  showErr('');
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
-// ─── UI HELPERS ───────────────────────────────────────────────────────────────
+// ── HELPERS ───────────────────────────────────────────
+function setP(pct, txt) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('statusTxt').textContent = txt;
+}
+function show(id) { document.getElementById(id).classList.add('show'); }
+function hide(id) { document.getElementById(id).classList.remove('show'); }
 function showErr(msg) {
-  const el = document.getElementById('errMsg');
-  if(msg) { el.textContent=msg; el.classList.add('show'); }
-  else el.classList.remove('show');
+  const el = document.getElementById('errEl');
+  if(msg){el.textContent=msg;el.classList.add('show');}else el.classList.remove('show');
 }
 function showToast(msg, type='') {
-  const t=document.getElementById('toast');
-  t.textContent=msg; t.className='toast show '+type;
-  setTimeout(()=>t.className='toast',3000);
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3200);
 }
 </script>
 </body>
